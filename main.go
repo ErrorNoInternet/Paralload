@@ -21,6 +21,7 @@ import (
 )
 
 var (
+	version         string = "1.0.0"
 	application     fyne.App
 	mainWindow      fyne.Window
 	downloadButton  *widget.Button
@@ -62,7 +63,7 @@ func (chunkWriter *ChunkWriter) Write(bytes []byte) (int, error) {
 
 func main() {
 	application = app.New()
-	mainWindow = application.NewWindow("Paralload")
+	mainWindow = application.NewWindow("Paralload " + version)
 
 	urlLabel := widget.NewLabel("Download URL")
 	urlEntry := widget.NewEntry()
