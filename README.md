@@ -4,7 +4,7 @@ A download tool that uses multiple HTTP(S) connections and byte ranges
 
 ## Compiling
 - Requirements
- - Go (1.18 recommended)
+  - Go (1.18 recommended)
 ```
 git clone https://github.com/ErrorNoInternet/Paralload
 cd Paralload
