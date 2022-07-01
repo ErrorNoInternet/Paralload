@@ -1,8 +1,0 @@
-Website = "https://github.com/ErrorNoInternet/Paralload"
-
-[Details]
-Icon = "Icon.png"
-Name = "Paralload"
-ID = "dev.ryan.paralload"
-Version = "1.0.0"
-Build = 1
