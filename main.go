@@ -215,12 +215,14 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 	var offset int64
 	for offset = 0; offset <= contentLength; offset += chunkSize {
 		if !downloading {
-			time.Sleep(time.Duration(timeout) * time.Second)
+			for activeWorkers > 0 {
+				time.Sleep(1 * time.Second)
+			}
 			enableDownloads()
 			return
 		}
 		for activeWorkers >= workers {
-			time.Sleep(1 * time.Second)
+			time.Sleep(500 * time.Millisecond)
 		}
 		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/chunkSize))
 		progressBar := widget.NewProgressBar()
