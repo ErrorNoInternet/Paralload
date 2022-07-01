@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	version         string = "1.0.0"
+	version         string = "1.0.1"
 	application     fyne.App
 	mainWindow      fyne.Window
 	downloadButton  *widget.Button
@@ -150,7 +150,7 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	}
 	outputFile, err := os.Create(path)
 	if err != nil {
-		dialog.ShowInformation("Error", "The output file could not be created: "+wrapText(err.Error()), mainWindow)
+		dialog.ShowInformation("Error", "The output file could not be created:\n"+wrapText(err.Error()), mainWindow)
 		enableDownloads()
 		return
 	}
@@ -268,7 +268,7 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		}
 		response, err := client.Do(request)
 		if err != nil {
-			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error: %v", workerId, wrapText(err.Error())), mainWindow)
+			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
 			continue
 		}
 		defer response.Body.Close()
@@ -285,7 +285,7 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 			if err.Error() == "cancelled" {
 				break
 			}
-			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error: %v", workerId, wrapText(err.Error())), mainWindow)
+			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
 			continue
 		}
 		success = true
