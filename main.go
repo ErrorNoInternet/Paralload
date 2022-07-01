@@ -230,6 +230,7 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
 		}
 		threadContainer.Add(progressBarContainer.container)
+		threadContainer.Refresh()
 		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
 		activeWorkers++
 		workerId++
