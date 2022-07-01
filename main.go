@@ -245,6 +245,11 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 	success := false
 
 	for !success {
+		if !downloading {
+			activeWorkers--
+			return
+		}
+
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
 			if downloading {
@@ -283,7 +288,6 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		)
 		if err != nil {
 			if err.Error() == "cancelled" {
-				activeWorkers--
 				break
 			}
 			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
