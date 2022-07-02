@@ -26,10 +26,11 @@ var (
 	mainWindow      fyne.Window
 	downloadButton  *widget.Button
 	threadContainer *fyne.Container
+	usedContainers  []*fyne.Container
 	activeWorkers   int
 	downloading     bool
 
-	workers   int    = 16
+	workers   int    = 32
 	chunkSize int64  = 512000
 	timeout   int    = 10
 	userAgent string = "go-http-client/paralload"
@@ -104,6 +105,16 @@ func main() {
 		),
 	)
 	mainWindow.ShowAndRun()
+}
+
+func cleanContainers() {
+	for downloading || activeWorkers >= 1 {
+		for _, container := range usedContainers {
+			threadContainer.Remove(container)
+		}
+		threadContainer.Refresh()
+		time.Sleep(50 * time.Millisecond)
+	}
 }
 
 func enableDownloads() {
@@ -212,6 +223,7 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 
 	var workerId int
 	var offset int64
+	go cleanContainers()
 	for offset = 0; offset <= contentLength; offset += chunkSize {
 		if !downloading {
 			for activeWorkers > 0 {
@@ -231,11 +243,9 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
 		}
 		threadContainer.Add(progressBarContainer.container)
-		threadContainer.Refresh()
 		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
 		activeWorkers++
 		workerId++
-		time.Sleep(50 * time.Millisecond)
 	}
 	for activeWorkers > 0 {
 		time.Sleep(1 * time.Second)
@@ -298,7 +308,7 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		success = true
 	}
 
-	threadContainer.Remove(progressBarContainer.container)
+	usedContainers = append(usedContainers, progressBarContainer.container)
 	activeWorkers--
 }
 
