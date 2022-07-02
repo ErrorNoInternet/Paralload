@@ -276,7 +276,7 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		}
 		response, err := client.Do(request)
 		if err != nil {
-			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
+			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
 			continue
 		}
 		defer response.Body.Close()
@@ -293,7 +293,7 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 			if err.Error() == "cancelled" {
 				break
 			}
-			dialog.ShowInformation("Error", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
+			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
 			continue
 		}
 		success = true
