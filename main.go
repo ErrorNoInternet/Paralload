@@ -21,7 +21,7 @@ import (
 )
 
 var (
-	version         string = "1.0.1"
+	version         string = "1.0.2"
 	application     fyne.App
 	mainWindow      fyne.Window
 	downloadButton  *widget.Button
@@ -151,7 +151,6 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	outputFile, err := os.Create(path)
 	if err != nil {
 		dialog.ShowInformation("Error", "The output file could not be created:\n"+wrapText(err.Error()), mainWindow)
-		enableDownloads()
 		return
 	}
 	downloadButton.SetText("Cancel Download")
