@@ -32,7 +32,7 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 			return
 		}
 		for activeWorkers >= workers {
-			time.Sleep(500 * time.Millisecond)
+			time.Sleep(200 * time.Millisecond)
 		}
 		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/chunkSize))
 		progressBar := widget.NewProgressBar()
@@ -43,17 +43,19 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 		}
 		threadContainer.Add(progressBarContainer.container)
 		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
-		activeWorkers++
+		time.Sleep(50 * time.Millisecond)
 		workerId++
 	}
 	for activeWorkers > 0 {
 		time.Sleep(1 * time.Second)
 	}
-	dialog.ShowInformation("Download Complete", "Your file has been successfully downloaded!", mainWindow)
-	enableDownloads()
+	if downloading {
+		dialog.ShowInformation("Download Complete", "Your file has been successfully downloaded!", mainWindow)
+	}
 }
 
 func downloadChunk(url string, path string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer) {
+	activeWorkers++
 	success := false
 
 	for !success {
@@ -100,7 +102,8 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		)
 		if err != nil {
 			if err.Error() == "cancelled" {
-				break
+				activeWorkers--
+				return
 			}
 			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
 			continue
@@ -108,6 +111,6 @@ func downloadChunk(url string, path string, workerId int, outputFile *os.File, o
 		success = true
 	}
 
-	usedContainers = append(usedContainers, progressBarContainer.container)
 	activeWorkers--
+	usedContainers = append(usedContainers, progressBarContainer.container)
 }

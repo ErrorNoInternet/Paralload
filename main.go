@@ -110,8 +110,14 @@ func main() {
 
 func cleanContainers() {
 	for downloading || activeWorkers >= 1 {
-		for _, container := range usedContainers {
+		removeIndex := -1
+		for index, container := range usedContainers {
 			threadContainer.Remove(container)
+			removeIndex = index
+		}
+		fmt.Println(len(usedContainers), activeWorkers)
+		if removeIndex != -1 {
+			usedContainers = append(usedContainers[:removeIndex], usedContainers[removeIndex+1:]...)
 		}
 		threadContainer.Refresh()
 		time.Sleep(50 * time.Millisecond)
@@ -122,6 +128,8 @@ func enableDownloads() {
 	downloadButton.SetText("Download")
 	downloadButton.Enable()
 	downloading = false
+	activeWorkers = 0
+	usedContainers = []*fyne.Container{}
 	threadContainer.RemoveAll()
 	threadContainer.Add(layout.NewSpacer())
 	threadContainer.Add(fyne.NewContainerWithLayout(layout.NewCenterLayout(), widget.NewLabel("There are no active workers...")))
@@ -211,9 +219,7 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	}
 
 	startDownload(url, path, contentLength, outputFile)
-	if downloading {
-		enableDownloads()
-	}
+	enableDownloads()
 }
 
 func showAdvancedOptions() {
