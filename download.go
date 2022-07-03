@@ -43,7 +43,6 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 		}
 		threadContainer.Add(progressBarContainer.container)
 		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
-		time.Sleep(50 * time.Millisecond)
 		activeWorkers++
 		workerId++
 	}
