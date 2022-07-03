@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"strconv"
@@ -21,9 +20,10 @@ import (
 )
 
 var (
-	version         string = "1.0.2"
+	version         string = "1.0.3"
 	application     fyne.App
 	mainWindow      fyne.Window
+	optionWindow    fyne.Window
 	downloadButton  *widget.Button
 	threadContainer *fyne.Container
 	usedContainers  []*fyne.Container
@@ -65,6 +65,7 @@ func (chunkWriter *ChunkWriter) Write(bytes []byte) (int, error) {
 func main() {
 	application = app.New()
 	mainWindow = application.NewWindow("Paralload " + version)
+	mainWindow.SetIcon(resourceIconPng)
 
 	urlLabel := widget.NewLabel("Download URL")
 	urlEntry := widget.NewEntry()
@@ -215,105 +216,18 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	}
 }
 
-func startDownload(url string, path string, contentLength int64, outputFile *os.File) {
-	if !downloading {
-		enableDownloads()
+func showAdvancedOptions() {
+	if optionWindow != nil {
+		optionWindow.Close()
+		optionWindow = nil
 		return
 	}
 
-	var workerId int
-	var offset int64
-	go cleanContainers()
-	for offset = 0; offset <= contentLength; offset += chunkSize {
-		if !downloading {
-			for activeWorkers > 0 {
-				time.Sleep(1 * time.Second)
-			}
-			enableDownloads()
-			return
-		}
-		for activeWorkers >= workers {
-			time.Sleep(500 * time.Millisecond)
-		}
-		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/chunkSize))
-		progressBar := widget.NewProgressBar()
-		progressBarContainer := &ChunkContainer{
-			label,
-			progressBar,
-			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
-		}
-		threadContainer.Add(progressBarContainer.container)
-		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
-		activeWorkers++
-		workerId++
-	}
-	for activeWorkers > 0 {
-		time.Sleep(1 * time.Second)
-	}
-	dialog.ShowInformation("Download Complete", "Your file has been successfully downloaded!", mainWindow)
-}
-
-func downloadChunk(url string, path string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer) {
-	success := false
-
-	for !success {
-		if !downloading {
-			activeWorkers--
-			return
-		}
-
-		request, err := http.NewRequest("GET", url, nil)
-		if err != nil {
-			if downloading {
-				dialog.ShowInformation("Error", wrapText(err.Error()), mainWindow)
-			}
-			enableDownloads()
-			return
-		}
-		request.Header.Set("User-Agent", userAgent)
-		request.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", offset, offset+chunkSize-1))
-		client := &http.Client{
-			Transport: &http.Transport{
-				Dial: (&net.Dialer{
-					Timeout:   time.Duration(timeout) * time.Second,
-					KeepAlive: time.Duration(timeout) * time.Second,
-				}).Dial,
-				TLSHandshakeTimeout:   time.Duration(timeout) * time.Second,
-				ResponseHeaderTimeout: time.Duration(timeout) * time.Second,
-				IdleConnTimeout:       time.Duration(timeout) * time.Second,
-			},
-		}
-		response, err := client.Do(request)
-		if err != nil {
-			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
-			continue
-		}
-		defer response.Body.Close()
-		_, err = io.Copy(
-			&ChunkWriter{
-				outputFile,
-				int64(offset),
-				int64(offset),
-				progressBarContainer,
-			},
-			response.Body,
-		)
-		if err != nil {
-			if err.Error() == "cancelled" {
-				break
-			}
-			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
-			continue
-		}
-		success = true
-	}
-
-	usedContainers = append(usedContainers, progressBarContainer.container)
-	activeWorkers--
-}
-
-func showAdvancedOptions() {
-	optionWindow := application.NewWindow("Advanced Options")
+	optionWindow = application.NewWindow("Advanced Options")
+	optionWindow.SetIcon(resourceIconPng)
+	optionWindow.SetOnClosed(func() {
+		optionWindow = nil
+	})
 
 	workersLabel := widget.NewLabel("Workers")
 	workersEntry := widget.NewEntry()
@@ -358,6 +272,7 @@ func showAdvancedOptions() {
 		timeout = timeoutTime
 		userAgent = userAgentEntry.Text
 		optionWindow.Close()
+		optionWindow = nil
 	})
 	advancedOptionsContainer := fyne.NewContainerWithLayout(
 		layout.NewVBoxLayout(),
