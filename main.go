@@ -27,6 +27,7 @@ var (
 	downloadButton  *widget.Button
 	threadContainer *fyne.Container
 	usedContainers  []*fyne.Container
+	stopTime        int64
 	activeWorkers   int
 	downloading     bool
 
@@ -110,12 +111,18 @@ func main() {
 
 func cleanContainers() {
 	for downloading || activeWorkers >= 1 {
+		if stopTime != 0 {
+			if time.Now().Unix()-stopTime > int64(timeout) {
+				enableDownloads()
+				return
+			}
+		}
+
 		removeIndex := -1
 		for index, container := range usedContainers {
 			threadContainer.Remove(container)
 			removeIndex = index
 		}
-		fmt.Println(len(usedContainers), activeWorkers)
 		if removeIndex != -1 {
 			usedContainers = append(usedContainers[:removeIndex], usedContainers[removeIndex+1:]...)
 		}
@@ -155,6 +162,7 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 		downloading = false
 		downloadButton.SetText("Cancelling...")
 		downloadButton.Disable()
+		stopTime = time.Now().Unix()
 		return
 	}
 
@@ -218,6 +226,7 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 		return
 	}
 
+	stopTime = 0
 	startDownload(url, path, contentLength, outputFile)
 	enableDownloads()
 }
