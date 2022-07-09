@@ -89,6 +89,7 @@ func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int6
 
 	for !success {
 		if !downloading {
+			activeWorkers--
 			return
 		}
 
