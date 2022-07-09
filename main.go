@@ -2,6 +2,7 @@ package main
 
 import (
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
+	"github.com/vbauerster/mpb/v7"
 )
 
 var (
@@ -31,10 +33,14 @@ var (
 	activeWorkers   int
 	downloading     bool
 
-	workers   int    = 32
-	chunkSize int64  = 512000
-	timeout   int    = 10
-	userAgent string = "go-http-client/paralload"
+	workers                                     int = 32
+	cliWorkers                                  int
+	chunkSize                                   int64 = 512000
+	cliChunkSize                                int64
+	timeout                                     int = 10
+	cliTimeout                                  int
+	userAgent                                   string = "go-http-client/paralload"
+	cliDownloadURL, cliUserAgent, cliOutputFile string
 )
 
 type ChunkContainer struct {
@@ -63,50 +69,89 @@ func (chunkWriter *ChunkWriter) Write(bytes []byte) (int, error) {
 	}
 }
 
+type CliChunkWriter struct {
+	io.WriterAt
+	originalOffset int64
+	offset         int64
+	progressBar    *mpb.Bar
+}
+
+func (cliChunkWriter *CliChunkWriter) Write(bytes []byte) (int, error) {
+	if downloading {
+		count, err := cliChunkWriter.WriteAt(bytes, cliChunkWriter.offset)
+		cliChunkWriter.offset += int64(count)
+		cliChunkWriter.progressBar.SetCurrent(int64(
+			float64(cliChunkWriter.offset-cliChunkWriter.originalOffset) / float64(cliChunkWriter.originalOffset+cliChunkSize-cliChunkWriter.originalOffset) * 100,
+		))
+		return count, err
+	} else {
+		return 0, errors.New("cancelled")
+	}
+}
+
 func main() {
-	application = app.New()
-	mainWindow = application.NewWindow("Paralload " + version)
-	mainWindow.SetIcon(resourceIconPng)
+	flag.StringVar(&cliDownloadURL, "url", "", "The URL of the file you want to download")
+	flag.StringVar(&cliUserAgent, "userAgent", userAgent, "The user agent to use when making requests")
+	flag.StringVar(&cliOutputFile, "output", "", "The file that should store the downloaded data")
+	flag.IntVar(&cliWorkers, "workers", workers, "The amount of workers to use when downloading")
+	flag.Int64Var(&cliChunkSize, "chunkSize", int64(chunkSize), "The amount of workers to use when downloading")
+	flag.IntVar(&cliTimeout, "timeout", timeout, "The amount of seconds to wait before timing out")
+	flag.Parse()
+	if cliDownloadURL != "" {
+		if cliOutputFile == "" {
+			fmt.Println("Please provide an output file!")
+			return
+		}
+		fmt.Printf("Workers: %v, Chunk Size: %v bytes, Timeout: %vs. Starting download...\n", cliWorkers, cliChunkSize, cliTimeout)
+		result := startCliDownloadManager(cliDownloadURL, cliOutputFile, cliWorkers, cliChunkSize, cliTimeout, cliUserAgent)
+		if result != 0 {
+			return
+		}
+	} else {
+		application = app.New()
+		mainWindow = application.NewWindow("Paralload " + version)
+		mainWindow.SetIcon(resourceIconPng)
 
-	urlLabel := widget.NewLabel("Download URL")
-	urlEntry := widget.NewEntry()
-	urlContainer := fyne.NewContainerWithLayout(layout.NewFormLayout(), urlLabel, urlEntry)
-	pathLabel := widget.NewLabel("Output File")
-	pathEntry := widget.NewEntry()
-	pathBrowseButton := widget.NewButtonWithIcon("", theme.FileIcon(), func() {
-		dialog.ShowFileSave(func(uri fyne.URIWriteCloser, err error) {
-			if err != nil {
-				dialog.ShowInformation("Error", wrapText(err.Error()), mainWindow)
-				return
-			}
-			if uri != nil {
-				pathEntry.SetText(uri.URI().Path())
-			}
-		}, mainWindow)
-	})
-	pathOptionsContainer := fyne.NewContainerWithLayout(layout.NewFormLayout(), pathLabel, pathEntry)
-	pathContainer := fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, nil, nil, pathBrowseButton), pathOptionsContainer, pathBrowseButton)
-	advancedOptionsButton := widget.NewButtonWithIcon("Advanced Options", theme.SettingsIcon(), showAdvancedOptions)
-	downloadButton = widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() {
-		go startDownloadManager(urlEntry, pathEntry)
-	})
-	optionContainer := fyne.NewContainerWithLayout(layout.NewVBoxLayout(), urlContainer, pathContainer, advancedOptionsButton, downloadButton)
-	threadContainer = fyne.NewContainerWithLayout(
-		layout.NewVBoxLayout(),
-		layout.NewSpacer(),
-		fyne.NewContainerWithLayout(layout.NewCenterLayout(), widget.NewLabel("There are no active workers...")),
-		layout.NewSpacer(),
-	)
+		urlLabel := widget.NewLabel("Download URL")
+		urlEntry := widget.NewEntry()
+		urlContainer := fyne.NewContainerWithLayout(layout.NewFormLayout(), urlLabel, urlEntry)
+		pathLabel := widget.NewLabel("Output File")
+		pathEntry := widget.NewEntry()
+		pathBrowseButton := widget.NewButtonWithIcon("", theme.FileIcon(), func() {
+			dialog.ShowFileSave(func(uri fyne.URIWriteCloser, err error) {
+				if err != nil {
+					dialog.ShowInformation("Error", wrapText(err.Error()), mainWindow)
+					return
+				}
+				if uri != nil {
+					pathEntry.SetText(uri.URI().Path())
+				}
+			}, mainWindow)
+		})
+		pathOptionsContainer := fyne.NewContainerWithLayout(layout.NewFormLayout(), pathLabel, pathEntry)
+		pathContainer := fyne.NewContainerWithLayout(layout.NewBorderLayout(nil, nil, nil, pathBrowseButton), pathOptionsContainer, pathBrowseButton)
+		advancedOptionsButton := widget.NewButtonWithIcon("Advanced Options", theme.SettingsIcon(), showAdvancedOptions)
+		downloadButton = widget.NewButtonWithIcon("Download", theme.DownloadIcon(), func() {
+			go startDownloadManager(urlEntry, pathEntry)
+		})
+		optionContainer := fyne.NewContainerWithLayout(layout.NewVBoxLayout(), urlContainer, pathContainer, advancedOptionsButton, downloadButton)
+		threadContainer = fyne.NewContainerWithLayout(
+			layout.NewVBoxLayout(),
+			layout.NewSpacer(),
+			fyne.NewContainerWithLayout(layout.NewCenterLayout(), widget.NewLabel("There are no active workers...")),
+			layout.NewSpacer(),
+		)
 
-	mainWindow.Resize(fyne.Size{Width: 600, Height: 500})
-	mainWindow.SetContent(
-		fyne.NewContainerWithLayout(
-			layout.NewBorderLayout(optionContainer, nil, nil, nil),
-			optionContainer,
-			container.NewVScroll(threadContainer),
-		),
-	)
-	mainWindow.ShowAndRun()
+		mainWindow.Resize(fyne.Size{Width: 600, Height: 500})
+		mainWindow.SetContent(
+			fyne.NewContainerWithLayout(
+				layout.NewBorderLayout(optionContainer, nil, nil, nil),
+				optionContainer,
+				container.NewVScroll(threadContainer),
+			),
+		)
+		mainWindow.ShowAndRun()
+	}
 }
 
 func cleanContainers() {
@@ -155,6 +200,44 @@ func wrapText(text string) string {
 		}
 	}
 	return output
+}
+
+func startCliDownloadManager(url string, path string, workers int, chunkSize int64, timeout int, userAgent string) int {
+	fmt.Println("Sending HEAD request to " + url + "...")
+	request, err := http.NewRequest("HEAD", url, nil)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return 1
+	}
+	outputFile, err := os.Create(path)
+	if err != nil {
+		fmt.Println("The output file could not be created: " + err.Error())
+		return 1
+	}
+	request.Header.Set("User-Agent", userAgent)
+	client := &http.Client{Timeout: time.Duration(timeout) * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+		return 1
+	}
+	if response.Header.Get("Accept-Ranges") != "bytes" {
+		fmt.Println("Error: This server does not support HTTP byte ranges")
+		return 1
+	}
+	if response.Header.Get("Content-Length") == "" {
+		fmt.Println("Error: This server does not provide the Content-Length header")
+		return 1
+	}
+	contentLength, err := strconv.ParseInt(response.Header.Get("Content-Length"), 10, 64)
+	if err != nil {
+		fmt.Println("Error: This server does not provide a valid Content-Length header")
+		return 1
+	}
+
+	downloading = true
+	startCliDownload(url, contentLength, outputFile)
+	return 0
 }
 
 func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
@@ -212,7 +295,7 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	}
 	if response.Header.Get("Content-Length") == "" {
 		if downloading {
-			dialog.ShowInformation("Unsupported", "This server does not provide Content-Length", mainWindow)
+			dialog.ShowInformation("Unsupported", "This server does not provide the Content-Length header", mainWindow)
 		}
 		enableDownloads()
 		return
@@ -220,14 +303,14 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 	contentLength, err := strconv.ParseInt(response.Header.Get("Content-Length"), 10, 64)
 	if err != nil {
 		if downloading {
-			dialog.ShowInformation("Unsupported", "This server does not provide a valid Content-Length", mainWindow)
+			dialog.ShowInformation("Unsupported", "This server does not provide a valid Content-Length header", mainWindow)
 		}
 		enableDownloads()
 		return
 	}
 
 	stopTime = 0
-	startDownload(url, path, contentLength, outputFile)
+	startDownload(url, contentLength, outputFile)
 	enableDownloads()
 }
 

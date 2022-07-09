@@ -12,9 +12,40 @@ import (
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
+	"github.com/vbauerster/mpb/v7"
+	"github.com/vbauerster/mpb/v7/decor"
 )
 
-func startDownload(url string, path string, contentLength int64, outputFile *os.File) {
+func startCliDownload(url string, contentLength int64, outputFile *os.File) {
+	var workerId int
+	var offset int64
+	progressContainer := mpb.New()
+	for offset = 0; offset <= contentLength; offset += cliChunkSize {
+		for activeWorkers >= int(cliWorkers) {
+			time.Sleep(200 * time.Millisecond)
+		}
+		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/cliChunkSize))
+		progressBar := progressContainer.AddBar(
+			100,
+			nil,
+			mpb.BarFillerClearOnComplete(),
+			mpb.PrependDecorators(
+				decor.Name(label, decor.WC{W: len(label), C: decor.DidentRight}),
+			),
+		)
+		go cliDownloadChunk(url, workerId, outputFile, offset, progressBar)
+		activeWorkers++
+		workerId++
+	}
+	for activeWorkers > 0 {
+		time.Sleep(1 * time.Second)
+	}
+	downloading = false
+	activeWorkers = 0
+	fmt.Println("Your file has been successfully downloaded!")
+}
+
+func startDownload(url string, contentLength int64, outputFile *os.File) {
 	if !downloading {
 		enableDownloads()
 		return
@@ -42,7 +73,7 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
 		}
 		threadContainer.Add(progressBarContainer.container)
-		go downloadChunk(url, path, workerId, outputFile, offset, progressBarContainer)
+		go downloadChunk(url, workerId, outputFile, offset, progressBarContainer)
 		activeWorkers++
 		workerId++
 	}
@@ -54,7 +85,55 @@ func startDownload(url string, path string, contentLength int64, outputFile *os.
 	}
 }
 
-func downloadChunk(url string, path string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer) {
+func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBar *mpb.Bar) {
+	success := false
+
+	for !success {
+		if !downloading {
+			return
+		}
+
+		request, err := http.NewRequest("GET", url, nil)
+		if err != nil {
+			fmt.Println("Error: " + err.Error())
+			downloading = false
+		}
+		request.Header.Set("User-Agent", cliUserAgent)
+		request.Header.Set("Range", fmt.Sprintf("bytes=%v-%v", offset, offset+cliChunkSize-1))
+		client := &http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout:   time.Duration(cliTimeout) * time.Second,
+					KeepAlive: time.Duration(cliTimeout) * time.Second,
+				}).Dial,
+				TLSHandshakeTimeout:   time.Duration(cliTimeout) * time.Second,
+				ResponseHeaderTimeout: time.Duration(cliTimeout) * time.Second,
+				IdleConnTimeout:       time.Duration(cliTimeout) * time.Second,
+			},
+		}
+		response, err := client.Do(request)
+		if err != nil {
+			continue
+		}
+		defer response.Body.Close()
+		written, err = io.Copy(
+			&CliChunkWriter{
+				outputFile,
+				int64(offset),
+				int64(offset),
+				progressBar,
+			},
+			response.Body,
+		)
+		if err != nil {
+			continue
+		}
+		success = true
+	}
+	activeWorkers--
+}
+
+func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer) {
 	success := false
 
 	for !success {
