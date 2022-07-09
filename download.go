@@ -25,10 +25,9 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 			time.Sleep(200 * time.Millisecond)
 		}
 		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/cliChunkSize))
-		progressBar := progressContainer.AddBar(
+		progressBar := progressContainer.New(
 			100,
-			nil,
-			mpb.BarFillerClearOnComplete(),
+			mpb.BarStyle().Padding(" "),
 			mpb.PrependDecorators(
 				decor.Name(label, decor.WC{W: len(label), C: decor.DidentRight}),
 			),
@@ -116,17 +115,14 @@ func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int6
 			continue
 		}
 		defer response.Body.Close()
-		written, err = io.Copy(
-			&CliChunkWriter{
-				outputFile,
-				int64(offset),
-				int64(offset),
-				progressBar,
-			},
-			response.Body,
-		)
+		cliChunkWriter := &CliChunkWriter{outputFile, int64(offset), int64(offset), progressBar}
+		_, err = io.Copy(cliChunkWriter, response.Body)
 		if err != nil {
 			continue
+		}
+		percentage := float64(cliChunkWriter.offset-offset) / float64(cliChunkSize) * 100
+		if int64(percentage) != 100 {
+			progressBar.SetCurrent(100)
 		}
 		success = true
 	}

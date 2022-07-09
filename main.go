@@ -61,7 +61,7 @@ func (chunkWriter *ChunkWriter) Write(bytes []byte) (int, error) {
 		count, err := chunkWriter.WriteAt(bytes, chunkWriter.offset)
 		chunkWriter.offset += int64(count)
 		chunkWriter.progressBarContainer.progressBar.SetValue(
-			float64(chunkWriter.offset-chunkWriter.originalOffset) / float64(chunkWriter.originalOffset+chunkSize-chunkWriter.originalOffset),
+			float64(chunkWriter.offset-chunkWriter.originalOffset) / float64(chunkSize),
 		)
 		return count, err
 	} else {
@@ -81,7 +81,7 @@ func (cliChunkWriter *CliChunkWriter) Write(bytes []byte) (int, error) {
 		count, err := cliChunkWriter.WriteAt(bytes, cliChunkWriter.offset)
 		cliChunkWriter.offset += int64(count)
 		cliChunkWriter.progressBar.SetCurrent(int64(
-			float64(cliChunkWriter.offset-cliChunkWriter.originalOffset) / float64(cliChunkWriter.originalOffset+cliChunkSize-cliChunkWriter.originalOffset) * 100,
+			float64(cliChunkWriter.offset-cliChunkWriter.originalOffset) / float64(cliChunkSize) * 100,
 		))
 		return count, err
 	} else {
