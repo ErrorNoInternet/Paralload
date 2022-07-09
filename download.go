@@ -31,6 +31,7 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 			mpb.PrependDecorators(
 				decor.Name(label, decor.WC{W: len(label), C: decor.DidentRight}),
 			),
+			mpb.AppendDecorators(decor.Percentage(decor.WC{W: 6, C: decor.DidentRight})),
 		)
 		go cliDownloadChunk(url, workerId, outputFile, offset, progressBar)
 		activeWorkers++
