@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	version         string = "1.0.3"
+	version         string = "1.1.0"
 	application     fyne.App
 	mainWindow      fyne.Window
 	optionWindow    fyne.Window
