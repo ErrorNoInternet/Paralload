@@ -155,7 +155,7 @@ func main() {
 }
 
 func cleanContainers() {
-	for downloading || activeWorkers >= 1 {
+	for downloading || activeWorkers > 0 {
 		if stopTime != 0 {
 			if time.Now().Unix()-stopTime > int64(timeout) {
 				enableDownloads()
