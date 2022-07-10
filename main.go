@@ -96,7 +96,12 @@ func main() {
 	flag.IntVar(&cliWorkers, "workers", workers, "The amount of workers to use when downloading")
 	flag.Int64Var(&cliChunkSize, "chunkSize", int64(chunkSize), "The amount of workers to use when downloading")
 	flag.IntVar(&cliTimeout, "timeout", timeout, "The amount of seconds to wait before timing out")
+	displayVersion := flag.Bool("version", false, "Display the current version of Paralload")
 	flag.Parse()
+	if *displayVersion {
+		fmt.Printf("Paralload %v\n", version)
+		return
+	}
 	if cliDownloadURL != "" {
 		if cliOutputFile == "" {
 			fmt.Println("Please provide an output file!")
