@@ -41,9 +41,9 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 		workerId++
 	}
 	waitGroup.Wait()
+	progressContainer.Wait()
 	downloading = false
 	activeWorkers = 0
-	time.Sleep(1 * time.Second)
 	fmt.Println("Your file has been successfully downloaded!")
 }
 
