@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"fyne.io/fyne/v2"
@@ -17,6 +18,8 @@ import (
 )
 
 func startCliDownload(url string, contentLength int64, outputFile *os.File) {
+	var waitGroup sync.WaitGroup
+	var mutex sync.Mutex
 	var workerId int
 	var offset int64
 	progressContainer := mpb.New()
@@ -33,13 +36,11 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 			),
 			mpb.AppendDecorators(decor.Percentage(decor.WC{W: 6, C: decor.DidentRight})),
 		)
-		go cliDownloadChunk(url, workerId, outputFile, offset, progressBar)
-		activeWorkers++
+		waitGroup.Add(1)
+		go cliDownloadChunk(url, workerId, outputFile, offset, progressBar, &waitGroup, &mutex)
 		workerId++
 	}
-	for activeWorkers > 0 {
-		time.Sleep(1 * time.Second)
-	}
+	waitGroup.Wait()
 	downloading = false
 	activeWorkers = 0
 	fmt.Println("Your file has been successfully downloaded!")
@@ -51,9 +52,11 @@ func startDownload(url string, contentLength int64, outputFile *os.File) {
 		return
 	}
 
+	var waitGroup sync.WaitGroup
+	var mutex sync.Mutex
 	var workerId int
 	var offset int64
-	go cleanContainers()
+	go refreshContainers()
 	for offset = 0; offset <= contentLength; offset += chunkSize {
 		if !downloading {
 			for activeWorkers > 0 {
@@ -73,26 +76,30 @@ func startDownload(url string, contentLength int64, outputFile *os.File) {
 			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
 		}
 		threadContainer.Add(progressBarContainer.container)
-		go downloadChunk(url, workerId, outputFile, offset, progressBarContainer)
-		activeWorkers++
+		waitGroup.Add(1)
+		go downloadChunk(url, workerId, outputFile, offset, progressBarContainer, &waitGroup, &mutex)
 		workerId++
 	}
-	for activeWorkers > 0 {
-		time.Sleep(1 * time.Second)
-	}
+	waitGroup.Wait()
 	if downloading {
 		dialog.ShowInformation("Download Complete", "Your file has been successfully downloaded!", mainWindow)
 	}
 }
 
-func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBar *mpb.Bar) {
+func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBar *mpb.Bar, waitGroup *sync.WaitGroup, mutex *sync.Mutex) {
 	success := false
 
 	for !success {
 		if !downloading {
+			mutex.Lock()
 			activeWorkers--
+			mutex.Unlock()
+			waitGroup.Done()
 			return
 		}
+		mutex.Lock()
+		activeWorkers++
+		mutex.Unlock()
 
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
@@ -128,17 +135,26 @@ func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int6
 		}
 		success = true
 	}
+	mutex.Lock()
 	activeWorkers--
+	mutex.Unlock()
+	waitGroup.Done()
 }
 
-func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer) {
+func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, progressBarContainer *ChunkContainer, waitGroup *sync.WaitGroup, mutex *sync.Mutex) {
 	success := false
 
 	for !success {
 		if !downloading {
+			mutex.Lock()
 			activeWorkers--
+			mutex.Unlock()
+			waitGroup.Done()
 			return
 		}
+		mutex.Lock()
+		activeWorkers++
+		mutex.Unlock()
 
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
@@ -146,6 +162,7 @@ func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, 
 				dialog.ShowInformation("Error", wrapText(err.Error()), mainWindow)
 			}
 			enableDownloads()
+			waitGroup.Done()
 			return
 		}
 		request.Header.Set("User-Agent", userAgent)
@@ -178,7 +195,10 @@ func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, 
 		)
 		if err != nil {
 			if err.Error() == "cancelled" {
+				mutex.Lock()
 				activeWorkers--
+				mutex.Unlock()
+				waitGroup.Done()
 				return
 			}
 			dialog.ShowInformation("Error (retrying)", fmt.Sprintf("Worker %v has ran into an error:\n%v", workerId, wrapText(err.Error())), mainWindow)
@@ -187,6 +207,9 @@ func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, 
 		success = true
 	}
 
+	mutex.Lock()
 	activeWorkers--
-	usedContainers = append(usedContainers, progressBarContainer.container)
+	threadContainer.Remove(progressBarContainer.container)
+	mutex.Unlock()
+	waitGroup.Done()
 }

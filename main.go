@@ -22,14 +22,12 @@ import (
 )
 
 var (
-	version         string = "1.1.0"
+	version         string = "1.1.1"
 	application     fyne.App
 	mainWindow      fyne.Window
 	optionWindow    fyne.Window
 	downloadButton  *widget.Button
 	threadContainer *fyne.Container
-	usedContainers  []*fyne.Container
-	stopTime        int64
 	activeWorkers   int
 	downloading     bool
 
@@ -159,25 +157,10 @@ func main() {
 	}
 }
 
-func cleanContainers() {
+func refreshContainers() {
 	for downloading || activeWorkers > 0 {
-		if stopTime != 0 {
-			if time.Now().Unix()-stopTime > int64(timeout) {
-				enableDownloads()
-				return
-			}
-		}
-
-		removeIndex := -1
-		for index, container := range usedContainers {
-			threadContainer.Remove(container)
-			removeIndex = index
-		}
-		if removeIndex != -1 {
-			usedContainers = append(usedContainers[:removeIndex], usedContainers[removeIndex+1:]...)
-		}
 		threadContainer.Refresh()
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(100 * time.Millisecond)
 	}
 }
 
@@ -186,7 +169,6 @@ func enableDownloads() {
 	downloadButton.Enable()
 	downloading = false
 	activeWorkers = 0
-	usedContainers = []*fyne.Container{}
 	threadContainer.RemoveAll()
 	threadContainer.Add(layout.NewSpacer())
 	threadContainer.Add(fyne.NewContainerWithLayout(layout.NewCenterLayout(), widget.NewLabel("There are no active workers...")))
@@ -250,7 +232,6 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 		downloading = false
 		downloadButton.SetText("Cancelling...")
 		downloadButton.Disable()
-		stopTime = time.Now().Unix()
 		return
 	}
 
@@ -314,7 +295,6 @@ func startDownloadManager(urlEntry *widget.Entry, pathEntry *widget.Entry) {
 		return
 	}
 
-	stopTime = 0
 	startDownload(url, contentLength, outputFile)
 	enableDownloads()
 }
