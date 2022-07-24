@@ -36,9 +36,12 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 			),
 			mpb.AppendDecorators(decor.Percentage(decor.WC{W: 6, C: decor.DidentRight})),
 		)
-		waitGroup.Add(1)
 		go cliDownloadChunk(url, workerId, outputFile, offset, progressBar, &waitGroup, &mutex)
+		waitGroup.Add(1)
 		workerId++
+		mutex.Lock()
+		activeWorkers++
+		mutex.Unlock()
 	}
 	waitGroup.Wait()
 	progressContainer.Wait()
@@ -77,9 +80,12 @@ func startDownload(url string, contentLength int64, outputFile *os.File) {
 			fyne.NewContainerWithLayout(layout.NewFormLayout(), widget.NewLabel(label), progressBar),
 		}
 		threadContainer.Add(progressBarContainer.container)
-		waitGroup.Add(1)
 		go downloadChunk(url, workerId, outputFile, offset, progressBarContainer, &waitGroup, &mutex)
+		waitGroup.Add(1)
 		workerId++
+		mutex.Lock()
+		activeWorkers++
+		mutex.Unlock()
 	}
 	waitGroup.Wait()
 	if downloading {
@@ -98,9 +104,6 @@ func cliDownloadChunk(url string, workerId int, outputFile *os.File, offset int6
 			waitGroup.Done()
 			return
 		}
-		mutex.Lock()
-		activeWorkers++
-		mutex.Unlock()
 
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
@@ -153,9 +156,6 @@ func downloadChunk(url string, workerId int, outputFile *os.File, offset int64, 
 			waitGroup.Done()
 			return
 		}
-		mutex.Lock()
-		activeWorkers++
-		mutex.Unlock()
 
 		request, err := http.NewRequest("GET", url, nil)
 		if err != nil {
