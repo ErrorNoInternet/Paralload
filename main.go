@@ -33,7 +33,7 @@ var (
 
 	workers                                     int = 32
 	cliWorkers                                  int
-	chunkSize                                   int64 = 512000
+	chunkSize                                   int64 = 1048576
 	cliChunkSize                                int64
 	timeout                                     int = 10
 	cliTimeout                                  int
