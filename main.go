@@ -105,6 +105,14 @@ func main() {
 			fmt.Println("Please provide an output file!")
 			return
 		}
+		if cliWorkers < 1 {
+			fmt.Printf("\"%v\" is an invalid number!\n", cliWorkers)
+			return
+		}
+		if cliChunkSize < 1 {
+			fmt.Printf("\"%v\" is an invalid number!\n", cliChunkSize)
+			return
+		}
 		fmt.Printf("Workers: %v, Chunk Size: %v bytes, Timeout: %vs. Starting download...\n", cliWorkers, cliChunkSize, cliTimeout)
 		result := startCliDownloadManager(cliDownloadURL, cliOutputFile, cliWorkers, cliChunkSize, cliTimeout, cliUserAgent)
 		if result != 0 {
@@ -336,12 +344,12 @@ func showAdvancedOptions() {
 		}
 
 		workersCount, err := strconv.Atoi(workersEntry.Text)
-		if err != nil {
+		if err != nil || workersCount < 1 {
 			dialog.ShowInformation("Workers", fmt.Sprintf("\"%v\" is an invalid number!", workersEntry.Text), optionWindow)
 			return
 		}
 		chunkSizeCount, err := strconv.ParseInt(chunkSizeEntry.Text, 10, 64)
-		if err != nil {
+		if err != nil || chunkSizeCount < 1 {
 			dialog.ShowInformation("Chunk Size", fmt.Sprintf("\"%v\" is an invalid number!", chunkSizeEntry.Text), optionWindow)
 			return
 		}
