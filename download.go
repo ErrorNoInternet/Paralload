@@ -27,7 +27,7 @@ func startCliDownload(url string, contentLength int64, outputFile *os.File) {
 		for activeWorkers >= int(cliWorkers) {
 			time.Sleep(200 * time.Millisecond)
 		}
-		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/cliChunkSize))
+		label := fmt.Sprintf("Worker %v/%v", workerId+1, int64(contentLength/cliChunkSize)+1)
 		progressBar := progressContainer.New(
 			100,
 			mpb.BarStyle().Padding(" "),
@@ -72,7 +72,7 @@ func startDownload(url string, contentLength int64, outputFile *os.File) {
 		for activeWorkers >= workers {
 			time.Sleep(200 * time.Millisecond)
 		}
-		label := fmt.Sprintf("Worker %v/%v", workerId, int64(contentLength/chunkSize))
+		label := fmt.Sprintf("Worker %v/%v", workerId+1, int64(contentLength/chunkSize)+1)
 		progressBar := widget.NewProgressBar()
 		progressBarContainer := &ChunkContainer{
 			label,
