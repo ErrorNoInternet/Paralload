@@ -14,4 +14,3 @@ CC="zig cc -target x86_64-windows-gnu" CXX="zig c++ -target x86_64-windows-gnu" 
 
 echo "Compiling Windows 32-bit..."
 CC="zig cc -target i386-windows-gnu" CXX="zig c++ -target i386-windows-gnu" GOOS=windows GOARCH=386 CGO_ENABLED=1 go build -ldflags "-s -w" -o bin/paralload_windows-386.exe -v
-
