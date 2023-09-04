@@ -11,5 +11,6 @@
             xorg.libXinerama
             xorg.libXrandr
             xorg.libXxf86vm
+            zig
         ];
 }
