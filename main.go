@@ -31,7 +31,7 @@ var (
 	activeWorkers   int
 	downloading     bool
 
-	workers                                     int = 32
+	workers                                     int = 16
 	cliWorkers                                  int
 	chunkSize                                   int64 = 1048576
 	cliChunkSize                                int64
