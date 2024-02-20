@@ -1,5 +1,5 @@
 {
-  description = "Paralload";
+  description = "Paralload - A download tool that uses multiple HTTP(S) connections with byte ranges";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
@@ -7,15 +7,14 @@
   };
 
   outputs = {
-    nixpkgs,
     flake-parts,
+    nixpkgs,
+    self,
     ...
   } @ inputs:
     flake-parts.lib.mkFlake {inherit inputs;} {
       systems = [
-        "aarch64-darwin"
         "aarch64-linux"
-        "x86_64-darwin"
         "x86_64-linux"
       ];
       perSystem = {
@@ -44,7 +43,10 @@
 
         packages.paralload = pkgs.buildGoModule {
           pname = "paralload";
-          version = "dev";
+          version =
+            if (self ? shortRev)
+            then self.shortRev
+            else self.dirtyShortRev;
 
           src = pkgs.lib.cleanSource ./.;
           vendorHash = "sha256-q0RVXDdH8+cdCfY2PrMpE8lDlxo3lQgar9WtSjjwioc=";

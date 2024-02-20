@@ -1,5 +1,5 @@
 # Paralload
-A download tool that uses multiple HTTP(S) connections and byte ranges
+A download tool that uses multiple HTTP(S) connections with byte ranges
 ![GUI Screenshot](https://raw.githubusercontent.com/ErrorNoInternet/Paralload/main/screenshots/0.png)
 ![CLI Screenshot](https://raw.githubusercontent.com/ErrorNoInternet/Paralload/main/screenshots/1.png)
 
